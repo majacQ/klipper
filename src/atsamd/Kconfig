@@ -13,7 +13,11 @@ config ATSAMD_SELECT
     select HAVE_GPIO_BITBANGING
     select HAVE_STRICT_TIMING
     select HAVE_CHIPID
+  <<<<<<< work-mechaduino-20181205
     select HAVE_SERVO_STEPPER if MACH_SAMD21
+  =======
+    select HAVE_STEPPER_BOTH_EDGE
+  >>>>>>> master
 
 config HAVE_SERCOM
     depends on HAVE_GPIO_I2C || HAVE_GPIO_SPI
