@@ -74,6 +74,24 @@ pins such as "extra_mcu:ar9" may then be used elsewhere in the config
 # See the "mcu" section for configuration parameters.
 ```
 
+### [flash_mcu]
+
+Hints for compiling and flashing Klipper's micro-controller code.
+
+```
+[flash_mcu my_board_type]
+kconfig:
+#   List of "kconfig declarations" (one per line) to use when
+#   compiling the micro-controller code. This parameter must be
+#   provided.
+flash_method:
+#   The type of bootloader on the target board. This parameter must be
+#   provided.
+#mcu: mcu
+#   A comma separated list of Klipper micro-controllers names that use
+#   this type of micro-controller. The default is "mcu".
+```
+
 ## Common kinematic settings
 
 ### [printer]
@@ -153,6 +171,13 @@ microsteps:
 #   gear_ratio is specified then rotation_distance specifies the
 #   distance the axis travels for one full rotation of the final gear.
 #   The default is to not use a gear ratio.
+#step_pulse_duration:
+#   The minimum time between the step pulse signal edge and the
+#   following "unstep" signal edge. This is also used to set the
+#   minimum time between a step pulse and a direction change signal.
+#   The default is 0.000000100 (100ns) for TMC steppers that are
+#   configured in UART or SPI mode, and the default is 0.000002 (which
+#   is 2us) for all other steppers.
 endstop_pin:
 #   Endstop switch detection pin. If this endstop pin is on a
 #   different mcu than the stepper motor then it enables "multi-mcu
@@ -245,6 +270,11 @@ max_z_velocity:
 #   maximum speed of up/down moves (which require a higher step rate
 #   than other moves on a delta printer). The default is to use
 #   max_velocity for max_z_velocity.
+#max_z_accel:
+#   This sets the maximum acceleration (in mm/s^2) of movement along
+#   the z axis. Setting this may be useful if the printer can reach higher
+#   acceleration on XY moves than Z moves (eg, when using input shaper).
+#   The default is to use max_accel for max_z_accel.
 #minimum_z_position: 0
 #   The minimum Z position that the user may command the head to move
 #   to. The default is 0.
@@ -696,10 +726,11 @@ heater_pin:
 #   periods) to the heater. The default is 1.0.
 sensor_type:
 #   Type of sensor - common thermistors are "EPCOS 100K B57560G104F",
-#   "ATC Semitec 104GT-2", "NTC 100K beta 3950", "Honeywell 100K
-#   135-104LAG-J01", "NTC 100K MGB18-104F39050L32", "SliceEngineering
-#   450", and "TDK NTCG104LH104JT1". See the "Temperature sensors"
-#   section for other sensors. This parameter must be provided.
+#   "ATC Semitec 104GT-2", "ATC Semitec 104NT-4-R025H42G", "Generic
+#   3950","Honeywell 100K 135-104LAG-J01", "NTC 100K MGB18-104F39050L32",
+#   "SliceEngineering 450", and "TDK NTCG104LH104JT1". See the
+#   "Temperature sensors" section for other sensors. This parameter
+#   must be provided.
 sensor_pin:
 #   Analog input pin connected to the sensor. This parameter must be
 #   provided.
@@ -1106,8 +1137,8 @@ Printer Skew Correction. It is possible to use software to correct
 printer skew across 3 planes, xy, xz, yz. This is done by printing a
 calibration model along a plane and measuring three lengths. Due to
 the nature of skew correction these lengths are set via gcode. See
-[skew correction](skew_correction.md) and
-[command reference](G-Codes.md#skew-correction) for details.
+[Skew Correction](Skew_Correction.md) and
+[Command Reference](G-Codes.md#skew-correction) for details.
 
 ```
 [skew_correction]
@@ -2053,9 +2084,9 @@ sections that use one of these sensors.
 ```
 sensor_type:
 #   One of "EPCOS 100K B57560G104F", "ATC Semitec 104GT-2",
-#   "NTC 100K beta 3950", "Honeywell 100K 135-104LAG-J01",
-#   "NTC 100K MGB18-104F39050L32", "SliceEngineering 450", or
-#   "TDK NTCG104LH104JT1"
+#   "ATC Semitec 104NT-4-R025H42G", "Generic 3950",
+#   "Honeywell 100K 135-104LAG-J01", "NTC 100K MGB18-104F39050L32",
+#   "SliceEngineering 450", or "TDK NTCG104LH104JT1"
 sensor_pin:
 #   Analog input pin connected to the thermistor. This parameter must
 #   be provided.
@@ -2140,7 +2171,7 @@ sensor_pin:
 ### BMP280/BME280/BME680 temperature sensor
 
 BMP280/BME280/BME680 two wire interface (I2C) environmental sensors.
-Note that thoose sensors aee not intended for use with extruders and
+Note that these sensors are not intended for use with extruders and
 heater beds, but rather for monitoring ambient temperature (C),
 pressure (hPa), relative humidity and in case of the BME680 gas level.
 See [sample-macros.cfg](../config/sample-macros.cfg) for a gcode_macro
@@ -2201,7 +2232,7 @@ have range up to 125 C, so are usable for e.g. chamber temperature
 monitoring. They can also function as simple fan/heater controllers.
 
 ```
-sensor_type: lm75
+sensor_type: LM75
 #i2c_address:
 #   Default is 72 (0x48). Normal range is 72-79 (0x48-0x4F) and the 3
 #   low bits of the address are configured via pins on the chip
@@ -2760,8 +2791,8 @@ run_current:
 #   during stepper movement. This parameter must be provided.
 #hold_current:
 #   The amount of current (in amps RMS) to configure the driver to use
-#   when the stepper is not moving. The default is to use the same
-#   value as run_current.
+#   when the stepper is not moving. The default is to not reduce the
+#   current.
 #sense_resistor: 0.110
 #   The resistance (in ohms) of the motor sense resistor. The default
 #   is 0.110 ohms.
@@ -3240,6 +3271,11 @@ lcd_type:
 #encoder_pins:
 #   The pins connected to encoder. 2 pins must be provided when using
 #   encoder. This parameter must be provided when using menu.
+#encoder_steps_per_detent:
+#   How many steps the encoder emits per detent ("click"). If the
+#   encoder takes two detents to move between entries or moves two
+#   entries from one detent, try changing this. Allowed values are 2
+#   (half-stepping) or 4 (full-stepping). The default is 4.
 #click_pin:
 #   The pin connected to 'enter' button or encoder 'click'. This
 #   parameter must be provided when using menu. The presence of an
@@ -3716,7 +3752,7 @@ TSLl401CL Based Filament Width Sensor. See the
 ### [hall_filament_width_sensor]
 
 Hall filament width sensor (see
-[Hall Filament Width Sensor](HallFilamentWidthSensor.md)).
+[Hall Filament Width Sensor](Hall_Filament_Width_Sensor.md)).
 
 ```
 [hall_filament_width_sensor]
@@ -3859,7 +3895,7 @@ vssa_pin:
 
 ### [replicape]
 
-Replicape support - see the [beaglebone guide](beaglebone.md) and the
+Replicape support - see the [beaglebone guide](Beaglebone.md) and the
 [generic-replicape.cfg](../config/generic-replicape.cfg) file for an
 example.
 
