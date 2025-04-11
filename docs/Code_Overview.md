@@ -58,9 +58,12 @@ functions are declared using the DECL_COMMAND() macro (see the
 
 Task, init, and command functions always run with interrupts enabled
 (however, they can temporarily disable interrupts if needed). These
-functions should never pause, delay, or do any work that lasts more
-than a few micro-seconds. These functions schedule work at specific
-times by scheduling timers.
+functions should avoid long pauses, delays, or do work that lasts a
+significant time. (Long delays in these "task" functions result in
+scheduling jitter for other "tasks" - delays over 100us may become
+noticeable, delays over 500us may result in command retransmissions,
+delays over 100ms may result in watchdog reboots.) These functions
+schedule work at specific times by scheduling timers.
 
 Timer functions are scheduled by calling sched_add_timer() (located in
 **src/sched.c**). The scheduler code will arrange for the given
@@ -133,8 +136,9 @@ provides further information on the mechanics of moves.
 
 * The ToolHead class (in toolhead.py) handles "look-ahead" and tracks
   the timing of printing actions. The main codepath for a move is:
-  `ToolHead.move() -> MoveQueue.add_move() -> MoveQueue.flush() ->
-  Move.set_junction() -> ToolHead._process_moves()`.
+  `ToolHead.move() -> LookAheadQueue.add_move() ->
+  LookAheadQueue.flush() -> Move.set_junction() ->
+  ToolHead._process_moves()`.
   * ToolHead.move() creates a Move() object with the parameters of the
   move (in cartesian space and in units of seconds and millimeters).
   * The kinematics class is given the opportunity to audit each move
@@ -143,10 +147,10 @@ provides further information on the mechanics of moves.
   may raise an error if the move is not valid. If check_move()
   completes successfully then the underlying kinematics must be able
   to handle the move.
-  * MoveQueue.add_move() places the move object on the "look-ahead"
-  queue.
-  * MoveQueue.flush() determines the start and end velocities of each
-  move.
+  * LookAheadQueue.add_move() places the move object on the
+  "look-ahead" queue.
+  * LookAheadQueue.flush() determines the start and end velocities of
+  each move.
   * Move.set_junction() implements the "trapezoid generator" on a
   move. The "trapezoid generator" breaks every move into three parts:
   a constant acceleration phase, followed by a constant velocity
@@ -167,17 +171,18 @@ provides further information on the mechanics of moves.
   placed on a "trapezoid motion queue": `ToolHead._process_moves() ->
   trapq_append()` (in klippy/chelper/trapq.c). The step times are then
   generated: `ToolHead._process_moves() ->
-  ToolHead._update_move_time() -> MCU_Stepper.generate_steps() ->
-  itersolve_generate_steps() -> itersolve_gen_steps_range()` (in
-  klippy/chelper/itersolve.c). The goal of the iterative solver is to
-  find step times given a function that calculates a stepper position
-  from a time. This is done by repeatedly "guessing" various times
-  until the stepper position formula returns the desired position of
-  the next step on the stepper. The feedback produced from each guess
-  is used to improve future guesses so that the process rapidly
-  converges to the desired time. The kinematic stepper position
-  formulas are located in the klippy/chelper/ directory (eg,
-  kin_cart.c, kin_corexy.c, kin_delta.c, kin_extruder.c).
+  ToolHead._advance_move_time() -> ToolHead._advance_flush_time() ->
+  MCU_Stepper.generate_steps() -> itersolve_generate_steps() ->
+  itersolve_gen_steps_range()` (in klippy/chelper/itersolve.c). The
+  goal of the iterative solver is to find step times given a function
+  that calculates a stepper position from a time. This is done by
+  repeatedly "guessing" various times until the stepper position
+  formula returns the desired position of the next step on the
+  stepper. The feedback produced from each guess is used to improve
+  future guesses so that the process rapidly converges to the desired
+  time. The kinematic stepper position formulas are located in the
+  klippy/chelper/ directory (eg, kin_cart.c, kin_corexy.c,
+  kin_delta.c, kin_extruder.c).
 
 * Note that the extruder is handled in its own kinematic class:
   `ToolHead._process_moves() -> PrinterExtruder.move()`. Since
@@ -354,10 +359,10 @@ Useful steps:
    be efficient as it is typically only called during homing and
    probing operations.
 5. Other methods. Implement the `check_move()`, `get_status()`,
-   `get_steppers()`, `home()`, and `set_position()` methods. These
-   functions are typically used to provide kinematic specific checks.
-   However, at the start of development one can use boiler-plate code
-   here.
+   `get_steppers()`, `home()`, `clear_homing_state()`, and `set_position()`
+   methods. These functions are typically used to provide kinematic
+   specific checks. However, at the start of development one can use
+   boiler-plate code here.
 6. Implement test cases. Create a g-code file with a series of moves
    that can test important cases for the given kinematics. Follow the
    [debugging documentation](Debugging.md) to convert this g-code file
